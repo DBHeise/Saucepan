@@ -1,0 +1,18 @@
+{
+    "MoveAfterProcessed": true,
+    "WatchFolder": "/data/input",
+    "DoneFolder": "/data/output",
+    "CyberSaucier" : "http://127.0.0.1:7000",
+    "WaitInterval" : 5000,
+    "CSVOptions": {
+        "FirstRowHeader": true,
+        "CaptureColumn": 6
+    },
+    "ElasticSearch": {
+        "URL": "http://127.0.0.1:9200",        
+        "IndexStart" : "testindex-",
+        "DTMask": "2006-01-02",
+        "Type": "blah",
+        "QueueSize": 100
+    }
+}
