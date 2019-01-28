@@ -28,19 +28,21 @@ func initES() {
 func flushQueue() {
 	index := config.ElasticSearch.IndexStart + time.Now().Format(config.ElasticSearch.DTMask)
 
-	req := esClient.Bulk()
-	for _, obj := range queue {
-		breq := elastic.NewBulkIndexRequest().Index(index).Type(config.ElasticSearch.Type).Doc(obj)
-		req.Add(breq)
-	}
+	if len(queue) > 0 {
+		req := esClient.Bulk()
+		for _, obj := range queue {
+			breq := elastic.NewBulkIndexRequest().Index(index).Type(config.ElasticSearch.Type).Doc(obj)
+			req.Add(breq)
+		}
 
-	resp, err := req.Do(esContext)
-	if err != nil {
-		log.WithError(err).Warn("Unable to push data to ElasticSearch")
-	}
+		resp, err := req.Do(esContext)
+		if err != nil {
+			log.WithError(err).Warn("Unable to push data to ElasticSearch")
+		}
 
-	log.WithField("Result", resp).Debug("ElasticSearch Response")
-	queue = make([]map[string]interface{}, 0)
+		log.WithField("Result", resp).Debug("ElasticSearch Response")
+		queue = make([]map[string]interface{}, 0)
+	}
 }
 
 func sendDataToES(object map[string]interface{}) error {
