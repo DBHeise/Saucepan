@@ -30,7 +30,7 @@ func init() {
 	flag.StringVar(&loglevel, "loglevel", "warn", "Level of debugging {debug|info|warn|error|panic}")
 }
 
-func sendToCyberS(input string) (map[string]string, error) {
+func sendToCyberS(input string) ([]map[string]string, error) {
 	client := &http.Client{
 		Timeout: time.Second * 10,
 		Transport: (&http.Transport{
@@ -49,14 +49,11 @@ func sendToCyberS(input string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	ans := make(map[string]string)
-	respAns := make([]map[string]string, 0)
-	err = json.Unmarshal(respBytes, &respAns)
+
+	ans := make([]map[string]string, 0)
+	err = json.Unmarshal(respBytes, &ans)
 	if err != nil {
 		return nil, err
-	}
-	for _, r := range respAns {
-		ans[r["recipeName"]] = r["result"]
 	}
 
 	return ans, nil
@@ -136,12 +133,13 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 			}
 
 			//Append CyberSaucier results to obj
-			obj["CyberSaucier"] = make(map[string]string)
-			for name, result := range cybers {
-				if len(result) > 0 {
-					obj["CyberSaucier"].(map[string]string)[name] = result
+			cResults := make([]map[string]string, 0)
+			for _, result := range cybers {
+				if len(result["result"]) > 0 {
+					cResults = append(cResults, result)
 				}
 			}
+			obj["CyberSaucier"] = cResults
 
 			//Send to ES
 			err = sendDataToES(obj)
