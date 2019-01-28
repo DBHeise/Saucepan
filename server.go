@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"flag"
+	"html"
 	"io"
 	"io/ioutil"
 	"net"
@@ -54,6 +55,11 @@ func sendToCyberS(input string) ([]map[string]string, error) {
 	err = json.Unmarshal(respBytes, &ans)
 	if err != nil {
 		return nil, err
+	}
+
+	//Clean up
+	for _, item := range ans {
+		item["result"] = html.UnescapeString(item["result"])
 	}
 
 	return ans, nil
