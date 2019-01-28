@@ -66,132 +66,145 @@ func sendToCyberS(input string) ([]map[string]string, error) {
 	return ans, nil
 }
 
+func parseExtra(obj *map[string]interface{}, records *[]string, checkvalue *string) {
+
+}
+
 func fileHandler(fullpath string, info os.FileInfo, err error) error {
 	if err != nil {
 		log.Warn(err)
 	} else if !info.IsDir() {
-		log.WithFields(log.Fields{"File": fullpath}).Info("Processing file")
+		if strings.Index(fullpath, "completed") > -1 {
+			log.WithFields(log.Fields{"File": fullpath}).Info("Processing file")
 
-		filename := info.Name()
-		var dtStamp string
-		i := strings.Index(filename, "_")
-		if i > -1 {
-			parts := strings.Split(filename, "_")
-			dtStamp = strings.Split(parts[1], ".")[0]
-		}
+			filename := info.Name()
+			var dtStamp string
+			i := strings.Index(filename, "_")
+			if i > -1 {
+				parts := strings.Split(filename, "_")
+				dtStamp = strings.Split(parts[1], ".")[0]
+			}
 
-		f, err := os.Open(fullpath)
-		if err != nil {
-			log.WithError(err).Warn("Could not open file")
-			return nil
-		}
-
-		reader := csv.NewReader(f)
-		hadAnyErrors := false
-		headers := make([]string, 0)
-		nojuice := make([][]string, 0)
-
-		line := 0
-		if config.CSVOptions.FirstRowHeader {
-			headers, err = reader.Read()
-			line++
+			f, err := os.Open(fullpath)
 			if err != nil {
-				log.WithError(err).Warn("Error reading first record")
-			}
-		}
-
-		for {
-			record, err := reader.Read()
-			line++
-			obj := make(map[string]interface{})
-			obj["FileName"] = filename
-			obj["Line"] = line
-			if dtStamp != "" {
-				obj["DateTime"] = dtStamp
-			}
-			numRecords := len(record)
-			var checkvalue string
-
-			if err == io.EOF {
-				break
+				log.WithError(err).Warn("Could not open file")
+				return nil
 			}
 
-			if err != nil {
-				hadAnyErrors = true
-				log.WithError(err).Warn("Could not read record")
-				break
-			}
+			reader := csv.NewReader(f)
+			hadAnyErrors := false
+			headers := make([]string, 0)
+			nojuice := make([][]string, 0)
 
-			if len(headers) == numRecords {
-				for i := 0; i < numRecords; i++ {
-					obj[headers[i]] = record[i]
+			line := 0
+			if config.CSVOptions.FirstRowHeader {
+				headers, err = reader.Read()
+				line++
+				if err != nil {
+					log.WithError(err).Warn("Error reading first record")
 				}
 			}
 
-			if config.CSVOptions.CaptureColumn <= numRecords {
-				checkvalue = record[config.CSVOptions.CaptureColumn]
-			}
-
-			//Send to CyberSaucier
-			cybers, err := sendToCyberS(checkvalue)
-			if err != nil {
-				log.WithError(err).Warn("Error in CyberSaucier")
-				hadAnyErrors = true
-			}
-
-			//Append CyberSaucier results to obj
-			cResults := make([]map[string]string, 0)
-			for _, result := range cybers {
-				if len(result["result"]) > 0 {
-					cResults = append(cResults, result)
+			for {
+				record, err := reader.Read()
+				line++
+				obj := make(map[string]interface{})
+				obj["FileName"] = filename
+				obj["Line"] = line
+				if dtStamp != "" {
+					obj["DateTime"] = dtStamp
 				}
-			}
+				numRecords := len(record)
+				var checkvalue string
 
-			//Only push if there are results
-			if len(cResults) > 0 {
-				obj["CyberSaucier"] = cResults
+				if err == io.EOF {
+					break
+				}
 
-				//Send to ES
-				err = sendDataToES(obj)
+				if err != nil {
+					hadAnyErrors = true
+					log.WithError(err).Warn("Could not read record")
+					break
+				}
+
+				if len(headers) == numRecords {
+					for i := 0; i < numRecords; i++ {
+						obj[headers[i]] = record[i]
+					}
+				}
+
+				if config.CSVOptions.CaptureColumn <= numRecords {
+					checkvalue = record[config.CSVOptions.CaptureColumn]
+				} else {
+					checkvalue = strings.Join(record, ",")
+				}
+
+				//Extra parsing
+				parseExtra(&obj, &record, &checkvalue)
+
+				//Send to CyberSaucier
+				cybers, err := sendToCyberS(checkvalue)
 				if err != nil {
 					log.WithError(err).Warn("Error in CyberSaucier")
 					hadAnyErrors = true
 				}
-			} else {
-				if config.SavedUnjuiced {
-					nojuice = append(nojuice, record)
+
+				//Append CyberSaucier results to obj
+				cResults := make([]map[string]string, 0)
+				for _, result := range cybers {
+					if len(result["result"]) > 0 {
+						cResults = append(cResults, result)
+					}
+				}
+
+				//Only push if there are results
+				if len(cResults) > 0 {
+					obj["CyberSaucier"] = cResults
+
+					//Send to ES
+					err = sendDataToES(obj)
+					if err != nil {
+						log.WithError(err).Warn("Error in CyberSaucier")
+						hadAnyErrors = true
+					}
+				} else {
+					if config.SavedUnjuiced {
+						nojuice = append(nojuice, record)
+					}
 				}
 			}
-		}
 
-		f.Close()
+			f.Close()
 
-		if !hadAnyErrors && config.MoveAfterProcessed {
-			newDst := path.Join(config.DoneFolder, filename)
-			log.WithFields(log.Fields{
-				"src": fullpath,
-				"dst": newDst,
-			}).Debug("Moving File")
-			os.Rename(fullpath, newDst)
-		}
+			if !hadAnyErrors && config.MoveAfterProcessed {
+				newDst := path.Join(config.DoneFolder, filename)
+				log.WithFields(log.Fields{
+					"src": fullpath,
+					"dst": newDst,
+				}).Debug("Moving File")
+				os.Rename(fullpath, newDst)
+			}
 
-		if config.SavedUnjuiced && len(nojuice) > 0 {
-			outFile := path.Join(config.DoneFolder, "nojuice.csv")
-			oFile, err := os.OpenFile(outFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-			if err != nil {
-				log.WithError(err).Warn("Error opening nojuice.csv")
-			} else {
-				defer oFile.Close()
-				writer := csv.NewWriter(oFile)
-				writer.WriteAll(nojuice)
+			if config.SavedUnjuiced && len(nojuice) > 0 {
+				outFile := path.Join(config.DoneFolder, "nojuice.csv")
+				oFile, err := os.OpenFile(outFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+				if err != nil {
+					log.WithError(err).Warn("Error opening nojuice.csv")
+				} else {
+					defer oFile.Close()
+					writer := csv.NewWriter(oFile)
+					writer.WriteAll(nojuice)
 
-				if err := writer.Error(); err != nil {
-					log.WithError(err).Warn("Failure writing to nojuice.csv")
+					if err := writer.Error(); err != nil {
+						log.WithError(err).Warn("Failure writing to nojuice.csv")
+					}
 				}
 			}
-		}
 
-		log.WithFields(log.Fields{"File": fullpath}).Info("File Processing Complete")
+			log.WithFields(log.Fields{"File": fullpath}).Info("File Processing Complete")
+		} else {
+			log.WithFields(log.Fields{"File": fullpath}).Info("Ignoring file")
+		}
 	}
 	return nil
 }
