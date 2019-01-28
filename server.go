@@ -243,9 +243,11 @@ func main() {
 	//Initialization connection to ElasticSearch
 	initES()
 
-	//Handle all the existing files
-	filepath.Walk(config.WatchFolder, fileHandler)
-	flushQueue()
+	go func() {
+		//Handle all the existing files
+		filepath.Walk(config.WatchFolder, fileHandler)
+		flushQueue()
+	}()
 
 	//Setup folder watcher
 	watcher, err := fsnotify.NewWatcher()
