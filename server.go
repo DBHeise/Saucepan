@@ -162,8 +162,11 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 
 				//Only push if there are results
 				if len(cResults) > 0 {
-					obj["CyberSaucier"] = cResults
-
+					for _, item := range cResults {
+						for key, val := range item {
+							obj["CyberSaucier_"+key] = val
+						}
+					}
 					//Send to ES
 					err = sendDataToES(obj)
 					if err != nil {
