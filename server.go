@@ -16,6 +16,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/fsnotify/fsnotify"
 )
 
 var (
@@ -69,7 +70,7 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 	if err != nil {
 		log.Warn(err)
 	} else if !info.IsDir() {
-		log.WithFields(log.Fields{"File": fullpath}).Debug("Handling file")
+		log.WithFields(log.Fields{"File": fullpath}).Info("Processing file")
 
 		filename := info.Name()
 		var dtStamp string
@@ -87,8 +88,8 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 
 		reader := csv.NewReader(f)
 		hadAnyErrors := false
-		var headers []string
-		headers = make([]string, 0)
+		headers := make([]string, 0)
+		nojuice := make([][]string, 0)
 
 		line := 0
 		if config.CSVOptions.FirstRowHeader {
@@ -145,6 +146,8 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 					cResults = append(cResults, result)
 				}
 			}
+
+			//Only push if there are results
 			if len(cResults) > 0 {
 				obj["CyberSaucier"] = cResults
 
@@ -156,7 +159,7 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 				}
 			} else {
 				if config.SavedUnjuiced {
-
+					nojuice = append(nojuice, record)
 				}
 			}
 		}
@@ -171,11 +174,42 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 			}).Debug("Moving File")
 			os.Rename(fullpath, newDst)
 		}
+
+		if config.SavedUnjuiced && len(nojuice) > 0 {
+			outFile := path.Join(config.DoneFolder, "nojuice.csv")
+			oFile, err := os.OpenFile(outFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+			if err != nil {
+				log.WithError(err).Warn("Error opening nojuice.csv")
+			} else {
+				defer oFile.Close()
+				writer := csv.NewWriter(oFile)
+				writer.WriteAll(nojuice)
+
+				if err := writer.Error(); err != nil {
+					log.WithError(err).Warn("Failure writing to nojuice.csv")
+				}
+			}
+		}
+
+		log.WithFields(log.Fields{"File": fullpath}).Info("File Processing Complete")
 	}
 	return nil
 }
 
+func queueFile(fullpath string) {
+	log.WithField("Fullpath", fullpath).Debug("New File Created")
+
+	duration := time.Second * time.Duration(config.WaitInterval)
+	log.WithField("Seconds", config.WaitInterval).Debug("Sleeping")
+	time.Sleep(duration)
+
+	info, err := os.Stat(fullpath)
+
+	fileHandler(fullpath, info, err)
+}
+
 func main() {
+	//Setup everything
 	flag.Parse()
 	log.SetOutput(os.Stdout)
 
@@ -189,17 +223,48 @@ func main() {
 
 	log.Debug("Starting up")
 
+	//Load configuration
 	loadConfig(configFile)
+
+	//Initialization connection to ElasticSearch
 	initES()
 
-	for {
+	//Handle all the existing files
+	filepath.Walk(config.WatchFolder, fileHandler)
+	flushQueue()
 
-		filepath.Walk(config.WatchFolder, fileHandler)
-		flushQueue()
-
-		duration := time.Second * time.Duration(config.WaitInterval)
-		log.WithField("Seconds", config.WaitInterval).Debug("Sleeping")
-		time.Sleep(duration)
+	//Setup folder watcher
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.WithError(err).Fatal("Unable to create Folder Watcher")
 	}
+	defer watcher.Close()
 
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Op&fsnotify.Create == fsnotify.Create {
+					go queueFile(event.Name)
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.WithError(err).Warn("Error during folder watching")
+			}
+		}
+	}()
+
+	err = watcher.Add(config.WatchFolder)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.WithField("Folder", config.WatchFolder).Info("Watching Folder")
+
+	<-done
 }
