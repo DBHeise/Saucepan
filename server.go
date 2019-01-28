@@ -139,13 +139,19 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 					cResults = append(cResults, result)
 				}
 			}
-			obj["CyberSaucier"] = cResults
+			if len(cResults) > 0 {
+				obj["CyberSaucier"] = cResults
 
-			//Send to ES
-			err = sendDataToES(obj)
-			if err != nil {
-				log.WithError(err).Warn("Error in CyberSaucier")
-				hadAnyErrors = true
+				//Send to ES
+				err = sendDataToES(obj)
+				if err != nil {
+					log.WithError(err).Warn("Error in CyberSaucier")
+					hadAnyErrors = true
+				}
+			} else {
+				if config.SavedUnjuiced {
+
+				}
 			}
 		}
 
