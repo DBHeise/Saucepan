@@ -20,6 +20,7 @@ type esconfig struct {
 }
 type configuration struct {
 	MoveAfterProcessed bool      `json:"MoveAfterProcessed"`
+	SavedUnjuiced      bool      `json:"SaveUnjuiced"`
 	WatchFolder        string    `json:"WatchFolder"`
 	DoneFolder         string    `json:"DoneFolder"`
 	WaitInterval       int       `json:"WaitInterval"`
