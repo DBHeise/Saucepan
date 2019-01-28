@@ -74,7 +74,10 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 	if err != nil {
 		log.Warn(err)
 	} else if !info.IsDir() {
-		if strings.Index(fullpath, "completed") > -1 {
+		i := strings.Index(fullpath, "completed")
+		if i > -1 {
+			log.WithFields(log.Fields{"File": fullpath}).Info("Ignoring file")
+		} else {
 			log.WithFields(log.Fields{"File": fullpath}).Info("Processing file")
 
 			filename := info.Name()
@@ -202,8 +205,6 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 			}
 
 			log.WithFields(log.Fields{"File": fullpath}).Info("File Processing Complete")
-		} else {
-			log.WithFields(log.Fields{"File": fullpath}).Info("Ignoring file")
 		}
 	}
 	return nil
