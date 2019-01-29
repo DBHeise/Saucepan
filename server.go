@@ -66,7 +66,22 @@ func sendToCyberS(input string) ([]map[string]string, error) {
 	return ans, nil
 }
 
-func parseExtra(obj *map[string]interface{}, records *[]string, checkvalue *string) {
+func parseExtra(obj *map[string]interface{}, records []string, checkvalue string) {
+
+	for _, extra := range config.ExtraParsing {
+		start := strings.Index(checkvalue, extra.Start)
+		if start >= -1 {
+			trueStart := start + len(extra.Start)
+			end := strings.Index(checkvalue[trueStart:], extra.End)
+			if end <= -1 {
+				end = len(checkvalue)
+			} else {
+				end += trueStart
+			}
+
+			(*obj)[extra.Name] = checkvalue[trueStart:end]
+		}
+	}
 
 }
 
@@ -153,7 +168,7 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 				}
 
 				//Extra parsing
-				parseExtra(&obj, &record, &checkvalue)
+				parseExtra(&obj, record, checkvalue)
 
 				//Send to CyberSaucier
 				cybers, err := sendToCyberS(checkvalue)
