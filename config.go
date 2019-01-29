@@ -18,15 +18,67 @@ type esconfig struct {
 	Type       string `json:"Type"`
 	QueueSize  int    `json:"QueueSize"`
 }
+type extraparsing struct {
+	Name  string `json:"Name"`
+	Start string `json:"Start"`
+	End   string `json:"End"`
+}
 type configuration struct {
-	MoveAfterProcessed bool      `json:"MoveAfterProcessed"`
-	SavedUnjuiced      bool      `json:"SavedUnjuiced"`
-	WatchFolder        string    `json:"WatchFolder"`
-	DoneFolder         string    `json:"DoneFolder"`
-	WaitInterval       int       `json:"WaitInterval"`
-	CyberSaucier       string    `json:"CyberSaucier"`
-	CSVOptions         csvconfig `json:"CSVOptions"`
-	ElasticSearch      esconfig  `json:"ElasticSearch"`
+	WatchFolder        string         `json:"WatchFolder"`
+	DoneFolder         string         `json:"DoneFolder"`
+	MoveAfterProcessed bool           `json:"MoveAfterProcessed"`
+	IgnoreList         []string       `json:"IgnoreList"`
+	SaveNoSauce        bool           `json:"SaveNoSauce"`
+	NoSauceFile        string         `json:"NoSauceFile"`
+	WaitInterval       int            `json:"WaitInterval"`
+	CyberSaucier       string         `json:"CyberSaucier"`
+	CSVOptions         csvconfig      `json:"CSVOptions"`
+	ElasticSearch      esconfig       `json:"ElasticSearch"`
+	ExtraParsing       []extraparsing `json:"ExtraParsing"`
+}
+
+func createDefaultConfig() {
+	defaultConfig := &configuration{
+		WatchFolder:        ".\\Watch",
+		DoneFolder:         ".\\Done",
+		MoveAfterProcessed: true,
+		SaveNoSauce:        false,
+		NoSauceFile:        "nojuice.csv",
+		WaitInterval:       30,
+		CyberSaucier:       "",
+		IgnoreList:         make([]string, 0),
+		CSVOptions: csvconfig{
+			FirstRowHeader: false,
+			CaptureColumn:  0,
+		},
+		ElasticSearch: esconfig{
+			URL:        "",
+			IndexStart: "cybersaucier-",
+			DTMask:     "20060102",
+			Type:       "data",
+			QueueSize:  100,
+		},
+		ExtraParsing: make([]extraparsing, 0),
+	}
+	saveConfig("./config.json", defaultConfig)
+}
+
+func saveConfig(filepath string, cfg *configuration) {
+
+	file, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		log.WithError(err).Fatal("Error opening configuration file")
+	}
+
+	defer file.Close()
+
+	jsonEncoder := json.NewEncoder(file)
+
+	err = jsonEncoder.Encode(cfg)
+	if err != nil {
+		log.WithError(err).Fatal("Error encoding json configuration")
+	}
+
 }
 
 func loadConfig(filepath string) {

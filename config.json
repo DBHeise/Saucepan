@@ -3,7 +3,10 @@
     "WatchFolder": "/data/input",
     "DoneFolder": "/data/output",
     "CyberSaucier" : "http://127.0.0.1:7000",
-    "WaitInterval" : 5000,
+    "WaitInterval" : 60,
+    "SaveNoSauce": true,
+    "NoSauceFile": "nosauce.csv",
+    "IgnoreList": [],
     "CSVOptions": {
         "FirstRowHeader": true,
         "CaptureColumn": 6
@@ -14,5 +17,10 @@
         "DTMask": "2006-01-02",
         "Type": "blah",
         "QueueSize": 100
-    }
+    },
+    "ExtraParsing": [
+        { "Name": "A", "Start": "aaaaa", "End": "zzzz" },
+        { "Name": "B", "Start": "bbbbb", "End": "\r\n" },
+        { "Name": "C", "Start": "ccccc", "End": " " }
+    ]  
 }

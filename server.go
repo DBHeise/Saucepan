@@ -70,12 +70,22 @@ func parseExtra(obj *map[string]interface{}, records *[]string, checkvalue *stri
 
 }
 
+func shouldIgnore(fullpath string) bool {
+	ans := false
+	for _, tst := range config.IgnoreList {
+		if strings.Index(fullpath, tst) > -1 {
+			ans = true
+			break
+		}
+	}
+	return ans
+}
+
 func fileHandler(fullpath string, info os.FileInfo, err error) error {
 	if err != nil {
 		log.Warn(err)
 	} else if !info.IsDir() {
-		i := strings.Index(fullpath, "completed")
-		if i > -1 {
+		if shouldIgnore(fullpath) {
 			log.WithFields(log.Fields{"File": fullpath}).Info("Ignoring file")
 		} else {
 			log.WithFields(log.Fields{"File": fullpath}).Info("Processing file")
@@ -174,7 +184,7 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 						hadAnyErrors = true
 					}
 				} else {
-					if config.SavedUnjuiced {
+					if config.SaveNoSauce {
 						nojuice = append(nojuice, record)
 					}
 				}
@@ -191,18 +201,18 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 				os.Rename(fullpath, newDst)
 			}
 
-			if config.SavedUnjuiced && len(nojuice) > 0 {
-				outFile := path.Join(config.DoneFolder, "nojuice.csv")
+			if config.SaveNoSauce && len(nojuice) > 0 {
+				outFile := path.Join(config.DoneFolder, config.NoSauceFile)
 				oFile, err := os.OpenFile(outFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 				if err != nil {
-					log.WithError(err).Warn("Error opening nojuice.csv")
+					log.WithError(err).Warn("Error opening NoSauceFile")
 				} else {
 					defer oFile.Close()
 					writer := csv.NewWriter(oFile)
 					writer.WriteAll(nojuice)
 
 					if err := writer.Error(); err != nil {
-						log.WithError(err).Warn("Failure writing to nojuice.csv")
+						log.WithError(err).Warn("Failure writing to NoSauceFile")
 					}
 				}
 			}
