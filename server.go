@@ -102,6 +102,9 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 	} else if !info.IsDir() {
 		if shouldIgnore(fullpath) {
 			log.WithFields(log.Fields{"File": fullpath}).Info("Ignoring file")
+		} else if info.Size() == 0 {
+			log.WithFields(log.Fields{"File": fullpath}).Info("Empty file")
+			os.Remove(fullpath)
 		} else {
 			log.WithFields(log.Fields{"File": fullpath}).Info("Processing file")
 
