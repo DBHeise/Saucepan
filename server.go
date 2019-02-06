@@ -110,10 +110,12 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 
 			filename := info.Name()
 			var dtStamp string
+			var tag string
 			i := strings.Index(filename, "_")
 			if i > -1 {
 				parts := strings.Split(filename, "_")
 				dtStamp = strings.Split(parts[1], ".")[0]
+				tag = parts[0]
 			}
 
 			f, err := os.Open(fullpath)
@@ -142,6 +144,7 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 				obj := make(map[string]interface{})
 				obj["FileName"] = filename
 				obj["Line"] = line
+				obj["Tag"] = tag
 				if dtStamp != "" {
 					obj["DateTime"] = dtStamp
 				}
