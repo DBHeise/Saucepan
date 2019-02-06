@@ -48,3 +48,46 @@ func TestReadWriteConfig(t *testing.T) {
 
 	os.Remove(fullFile)
 }
+
+func TestEnvironmentOverride(t *testing.T) {
+	configFile, err := ioutil.TempFile("", "testing_")
+	if err != nil {
+		t.Error(err)
+	}
+
+	fullFile := configFile.Name()
+	expected := &configuration{
+		WatchFolder:        "/data/test/folder/input",
+		DoneFolder:         "T:\\data\\test\\folder\\output",
+		MoveAfterProcessed: true,
+		SaveNoSauce:        false,
+		NoSauceFile:        "asdf.csv",
+		WaitInterval:       30,
+		CyberSaucier:       "http://1.2.3.4:9999",
+		IgnoreList:         make([]string, 0),
+		CSVOptions: csvconfig{
+			FirstRowHeader: false,
+			CaptureColumn:  1,
+		},
+		ElasticSearch: esconfig{
+			URL:        "",
+			IndexStart: "aetfha",
+			DTMask:     "20060102",
+			Type:       "jhrt",
+			QueueSize:  1,
+		},
+		ExtraParsing: make([]extraparsing, 0),
+	}
+
+	saveConfig(fullFile, expected)
+
+	os.Setenv("SAUCE_CSV_CAPTURECOLUMN", "10")
+
+	loadConfig(fullFile)
+
+	actual := config
+
+	assert.EqualValues(t, 10, actual.CSVOptions.CaptureColumn)
+
+	os.Remove(fullFile)
+}
