@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"strconv"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -96,5 +97,16 @@ func loadConfig(filepath string) {
 	if err != nil {
 		log.WithError(err).Fatal("Could not decode json configuration")
 	}
+
+	//Load Environment Variable Overrides
+	//TODO: make this more generic for all options
+	val := os.Getenv("SAUCE_CSV_CAPTURECOLUMN")
+	if val != "" {
+		v, e := strconv.Atoi(val)
+		if e == nil {
+			config.CSVOptions.CaptureColumn = v
+		}
+	}
+
 	log.WithField("Config", config).Debug("Configuration Loaded")
 }
