@@ -13,6 +13,7 @@ var (
 
 	esClient  *elastic.Client
 	esContext context.Context
+	lastFlush time.Time
 )
 
 func initES() {
@@ -48,8 +49,9 @@ func flushQueue() {
 func sendDataToES(object map[string]interface{}) error {
 	queue = append(queue, object)
 
-	if len(queue) >= config.ElasticSearch.QueueSize {
+	if len(queue) >= config.ElasticSearch.QueueSize || int(time.Now().Sub(lastFlush).Seconds()) >= config.WaitInterval {
 		flushQueue()
+		lastFlush = time.Now()
 	}
 	return nil
 }
