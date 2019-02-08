@@ -32,7 +32,7 @@ func init() {
 	flag.StringVar(&loglevel, "loglevel", "warn", "Level of debugging {debug|info|warn|error|panic}")
 }
 
-func sendToCyberS(input string) ([]map[string]string, error) {
+func sendToCyberS(input string) ([]map[string]interface{}, error) {
 	client := &http.Client{
 		Timeout: time.Second * 10,
 		Transport: (&http.Transport{
@@ -52,7 +52,7 @@ func sendToCyberS(input string) ([]map[string]string, error) {
 		return nil, err
 	}
 
-	ans := make([]map[string]string, 0)
+	ans := make([]map[string]interface{}, 0)
 	err = json.Unmarshal(respBytes, &ans)
 	if err != nil {
 		return nil, err
@@ -60,7 +60,9 @@ func sendToCyberS(input string) ([]map[string]string, error) {
 
 	//Clean up
 	for _, item := range ans {
-		item["result"] = html.UnescapeString(item["result"])
+		if val, ok := item["result"]; ok {
+			item["result"] = html.UnescapeString(val.(string))
+		}
 	}
 
 	return ans, nil
@@ -189,9 +191,9 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 				}
 
 				//Append CyberSaucier results to obj
-				cResults := make([]map[string]string, 0)
+				cResults := make([]map[string]interface{}, 0)
 				for _, result := range cybers {
-					if val, ok := result["result"]; ok && len(val) > 0 {
+					if val, ok := result["result"]; ok && len(val.(string)) > 0 {
 						cResults = append(cResults, result)
 					}
 				}
@@ -202,13 +204,13 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 					hitlist := make([]string, 0)
 					recipeNameList := make([]string, 0)
 					for _, item := range cResults {
-
+						rslt := item["result"].(string)
 						if fieldname, ok := item["fieldname"]; ok {
-							obj[fieldname] = strings.Split(item["result"], "\n")
+							obj[fieldname.(string)] = strings.Split(rslt, "\n")
 						} else {
 							cs = append(cs, item)
-							hitlist = append(hitlist, strings.Split(item["result"], "\n")...)
-							recipeNameList = append(recipeNameList, item["recipeName"])
+							hitlist = append(hitlist, strings.Split(rslt, "\n")...)
+							recipeNameList = append(recipeNameList, item["recipeName"].(string))
 						}
 					}
 
