@@ -191,7 +191,7 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 				//Append CyberSaucier results to obj
 				cResults := make([]map[string]string, 0)
 				for _, result := range cybers {
-					if len(result["result"]) > 0 {
+					if val, ok := result["result"]; ok && len(val) > 0 {
 						cResults = append(cResults, result)
 					}
 				}
