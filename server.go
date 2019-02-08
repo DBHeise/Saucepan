@@ -70,7 +70,7 @@ func parseExtra(obj *map[string]interface{}, records []string, checkvalue string
 
 	for _, extra := range config.ExtraParsing {
 		start := strings.Index(checkvalue, extra.Start)
-		if start >= -1 {
+		if start > -1 {
 			trueStart := start + len(extra.Start)
 			end := strings.Index(checkvalue[trueStart:], extra.End)
 			if end <= -1 {
@@ -94,6 +94,11 @@ func shouldIgnore(fullpath string) bool {
 		}
 	}
 	return ans
+}
+
+func fileHandlerSpawn(fullpath string, info os.FileInfo, err error) error {
+	go fileHandler(fullpath, info, err)
+	return nil
 }
 
 func fileHandler(fullpath string, info os.FileInfo, err error) error {
@@ -193,16 +198,24 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 
 				//Only push if there are results
 				if len(cResults) > 0 {
+					cs := make([]interface{}, 0)
+					hitlist := make([]string, 0)
+					recipeNameList := make([]string, 0)
 					for _, item := range cResults {
+
 						if fieldname, ok := item["fieldname"]; ok {
-							obj[fieldname] = item["result"]
+							obj[fieldname] = strings.Split(item["result"], "\n")
 						} else {
-							for key, val := range item {
-								newKey := "CyberSaucier_" + key
-								obj[newKey] = val
-							}
+							cs = append(cs, item)
+							hitlist = append(hitlist, strings.Split(item["result"], "\n")...)
+							recipeNameList = append(recipeNameList, item["recipeName"])
 						}
 					}
+
+					obj["Hits"] = hitlist
+					obj["RecipeNames"] = recipeNameList
+					obj["CyberSaucier"] = cs
+
 					//Send to ES
 					err = sendDataToES(obj)
 					if err != nil {
@@ -284,7 +297,7 @@ func main() {
 
 	go func() {
 		//Handle all the existing files
-		filepath.Walk(config.WatchFolder, fileHandler)
+		filepath.Walk(config.WatchFolder, fileHandlerSpawn)
 		flushQueue()
 	}()
 
