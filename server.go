@@ -194,8 +194,13 @@ func fileHandler(fullpath string, info os.FileInfo, err error) error {
 				//Only push if there are results
 				if len(cResults) > 0 {
 					for _, item := range cResults {
-						for key, val := range item {
-							obj["CyberSaucier_"+key] = val
+						if fieldname, ok := item["fieldname"]; ok {
+							obj[fieldname] = item["result"]
+						} else {
+							for key, val := range item {
+								newKey := "CyberSaucier_" + key
+								obj[newKey] = val
+							}
 						}
 					}
 					//Send to ES
