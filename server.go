@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	oqueue "github.com/otium/queue"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/fsnotify/fsnotify"
 )
@@ -23,8 +25,8 @@ var (
 	configFile string
 	loglevel   string
 	logfile    string
-
-	config *configuration
+	config     *configuration
+	fileQueue  *oqueue.Queue
 )
 
 func init() {
@@ -98,182 +100,202 @@ func shouldIgnore(fullpath string) bool {
 	return ans
 }
 
-func fileHandlerSpawn(fullpath string, info os.FileInfo, err error) error {
-	go fileHandler(fullpath, info, err)
-	return nil
-}
-
-func fileHandler(fullpath string, info os.FileInfo, err error) error {
+func fileWalkHandler(fullpath string, info os.FileInfo, err error) error {
 	if err != nil {
 		log.Warn(err)
 	} else if !info.IsDir() {
-		if shouldIgnore(fullpath) {
-			log.WithFields(log.Fields{"File": fullpath}).Info("Ignoring file")
-		} else if info.Size() == 0 {
-			log.WithFields(log.Fields{"File": fullpath}).Info("Empty file")
-			os.Remove(fullpath)
-		} else {
-			log.WithFields(log.Fields{"File": fullpath}).Info("Processing file")
-
-			filename := info.Name()
-			var dtStamp string
-			var tag string
-			i := strings.Index(filename, "_")
-			if i > -1 {
-				parts := strings.Split(filename, "_")
-				dtStamp = strings.Split(parts[1], ".")[0]
-				tag = parts[0]
-			}
-
-			f, err := os.Open(fullpath)
-			if err != nil {
-				log.WithError(err).Warn("Could not open file")
-				return nil
-			}
-
-			reader := csv.NewReader(f)
-			hadAnyErrors := false
-			headers := make([]string, 0)
-			nojuice := make([][]string, 0)
-
-			line := 0
-			if config.CSVOptions.FirstRowHeader {
-				headers, err = reader.Read()
-				line++
-				if err != nil {
-					log.WithError(err).Warn("Error reading first record")
-				}
-			}
-
-			for {
-				record, err := reader.Read()
-				line++
-				obj := make(map[string]interface{})
-				obj["FileName"] = filename
-				obj["Line"] = line
-				obj["Tag"] = tag
-				if dtStamp != "" {
-					obj["DateTime"] = dtStamp
-				}
-				numRecords := len(record)
-				var checkvalue string
-
-				if err == io.EOF {
-					break
-				}
-
-				if err != nil {
-					hadAnyErrors = true
-					log.WithError(err).Warn("Could not read record")
-					break
-				}
-
-				if len(headers) == numRecords {
-					for i := 0; i < numRecords; i++ {
-						obj[headers[i]] = record[i]
-					}
-				}
-
-				if config.CSVOptions.CaptureColumn <= numRecords {
-					checkvalue = record[config.CSVOptions.CaptureColumn]
-				} else {
-					checkvalue = strings.Join(record, ",")
-				}
-
-				//Extra parsing
-				parseExtra(&obj, record, checkvalue)
-
-				//Send to CyberSaucier
-				cybers, err := sendToCyberS(checkvalue)
-				if err != nil {
-					log.WithError(err).Warn("Error in CyberSaucier")
-					hadAnyErrors = true
-				}
-
-				//Append CyberSaucier results to obj
-				cResults := make([]map[string]interface{}, 0)
-				for _, result := range cybers {
-					if val, ok := result["result"]; ok && len(val.(string)) > 0 {
-						cResults = append(cResults, result)
-					}
-				}
-
-				//Only push if there are results
-				if len(cResults) > 0 {
-					cs := make([]interface{}, 0)
-					hitlist := make([]string, 0)
-					recipeNameList := make([]string, 0)
-					for _, item := range cResults {
-						rslt := item["result"].(string)
-						if fieldname, ok := item["fieldname"]; ok {
-							obj[fieldname.(string)] = strings.Split(rslt, "\n")
-						} else {
-							cs = append(cs, item)
-							hitlist = append(hitlist, strings.Split(rslt, "\n")...)
-							recipeNameList = append(recipeNameList, item["recipeName"].(string))
-						}
-					}
-
-					obj["Hits"] = hitlist
-					obj["RecipeNames"] = recipeNameList
-					obj["CyberSaucier"] = cs
-
-					//Send to ES
-					err = sendDataToES(obj)
-					if err != nil {
-						log.WithError(err).Warn("Error in CyberSaucier")
-						hadAnyErrors = true
-					}
-				} else {
-					if config.SaveNoSauce {
-						nojuice = append(nojuice, record)
-					}
-				}
-			}
-
-			f.Close()
-
-			if !hadAnyErrors && config.MoveAfterProcessed {
-				newDst := path.Join(config.DoneFolder, filename)
-				log.WithFields(log.Fields{
-					"src": fullpath,
-					"dst": newDst,
-				}).Debug("Moving File")
-				os.Rename(fullpath, newDst)
-			}
-
-			if config.SaveNoSauce && len(nojuice) > 0 {
-				outFile := path.Join(config.DoneFolder, config.NoSauceFile)
-				oFile, err := os.OpenFile(outFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-				if err != nil {
-					log.WithError(err).Warn("Error opening NoSauceFile")
-				} else {
-					defer oFile.Close()
-					writer := csv.NewWriter(oFile)
-					writer.WriteAll(nojuice)
-
-					if err := writer.Error(); err != nil {
-						log.WithError(err).Warn("Failure writing to NoSauceFile")
-					}
-				}
-			}
-
-			log.WithFields(log.Fields{"File": fullpath}).Info("File Processing Complete")
-		}
+		queueFile(fullpath)
 	}
 	return nil
 }
 
-func queueFile(fullpath string) {
+func fileHandler(obj interface{}) {
+	fullpath := obj.(string)
+	if fullpath != "" {
+		info, err := os.Stat(fullpath)
+
+		if err != nil {
+			log.Warn(err)
+			return
+		}
+
+		if !info.IsDir() {
+			if shouldIgnore(fullpath) {
+				log.WithFields(log.Fields{"File": fullpath}).Info("Ignoring file")
+			} else if info.Size() == 0 {
+				log.WithFields(log.Fields{"File": fullpath}).Info("Empty file")
+				os.Remove(fullpath)
+			} else {
+				log.WithFields(log.Fields{"File": fullpath}).Info("Processing file")
+
+				filename := info.Name()
+				var dtStamp string
+				var tag string
+				i := strings.Index(filename, "_")
+				if i > -1 {
+					parts := strings.Split(filename, "_")
+					dtStamp = strings.Split(parts[1], ".")[0]
+					tag = parts[0]
+				}
+
+				f, err := os.Open(fullpath)
+				if err != nil {
+					log.WithError(err).Warn("Could not open file")
+					return
+				}
+
+				reader := csv.NewReader(f)
+				hadAnyErrors := false
+				headers := make([]string, 0)
+				nojuice := make([][]string, 0)
+
+				line := 0
+				if config.CSVOptions.FirstRowHeader {
+					headers, err = reader.Read()
+					line++
+					if err != nil {
+						log.WithError(err).Warn("Error reading first record")
+					}
+				}
+
+				for {
+					record, err := reader.Read()
+					line++
+
+					if err == io.EOF {
+						break
+					}
+
+					if err != nil {
+						hadAnyErrors = true
+						log.WithError(err).Warn("Could not read record")
+						break
+					}
+
+					obj := make(map[string]interface{})
+					obj["FileName"] = filename
+					obj["Line"] = line
+					obj["Tag"] = tag
+					if dtStamp != "" {
+						obj["DateTime"] = dtStamp
+					}
+					numRecords := len(record)
+					var checkvalue string
+
+					if len(headers) == numRecords {
+						for i := 0; i < numRecords; i++ {
+							obj[headers[i]] = record[i]
+						}
+					}
+
+					if config.CSVOptions.CaptureColumn <= numRecords {
+						checkvalue = record[config.CSVOptions.CaptureColumn]
+					} else {
+						checkvalue = strings.Join(record, ",")
+					}
+
+					//Extra parsing
+					parseExtra(&obj, record, checkvalue)
+
+					//Send to CyberSaucier
+					cybers, err := sendToCyberS(checkvalue)
+					if err != nil {
+						log.WithError(err).Warn("Error in CyberSaucier")
+						hadAnyErrors = true
+					}
+
+					//Append CyberSaucier results to obj
+					cResults := make([]map[string]interface{}, 0)
+					for _, result := range cybers {
+						if val, ok := result["result"]; ok && len(val.(string)) > 0 {
+							cResults = append(cResults, result)
+						}
+					}
+
+					//Only push if there are results
+					if len(cResults) > 0 {
+						cs := make([]interface{}, 0)
+						hitlist := make([]string, 0)
+						recipeNameList := make([]string, 0)
+						for _, item := range cResults {
+							rslt := item["result"].(string)
+							if fieldname, ok := item["fieldname"]; ok {
+								obj[fieldname.(string)] = strings.Split(rslt, "\n")
+							} else {
+								cs = append(cs, item)
+								hitlist = append(hitlist, strings.Split(rslt, "\n")...)
+								recipeNameList = append(recipeNameList, item["recipeName"].(string))
+							}
+						}
+
+						obj["Hits"] = hitlist
+						obj["RecipeNames"] = recipeNameList
+						obj["CyberSaucier"] = cs
+
+						//Send to ES
+						err = sendDataToES(obj)
+						if err != nil {
+							log.WithError(err).Warn("Error in CyberSaucier")
+							hadAnyErrors = true
+						}
+					} else {
+						if config.SaveNoSauce {
+							nojuice = append(nojuice, record)
+						}
+					}
+				}
+
+				f.Close()
+
+				if !hadAnyErrors && config.MoveAfterProcessed {
+					newDst := path.Join(config.DoneFolder, filename)
+					log.WithFields(log.Fields{
+						"src": fullpath,
+						"dst": newDst,
+					}).Debug("Moving File")
+					os.Rename(fullpath, newDst)
+				} else {
+					log.WithFields(log.Fields{
+						"src": fullpath,
+					}).Debug("File had errors")
+				}
+
+				if config.SaveNoSauce && len(nojuice) > 0 {
+					outFile := path.Join(config.DoneFolder, config.NoSauceFile)
+					oFile, err := os.OpenFile(outFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+					if err != nil {
+						log.WithError(err).Warn("Error opening NoSauceFile")
+					} else {
+						defer oFile.Close()
+						writer := csv.NewWriter(oFile)
+						writer.WriteAll(nojuice)
+
+						if err := writer.Error(); err != nil {
+							log.WithError(err).Warn("Failure writing to NoSauceFile")
+						}
+					}
+				}
+
+				log.WithFields(log.Fields{"File": fullpath}).Info("File Processing Complete")
+
+			}
+		}
+	}
+}
+
+func waitFile(fullpath string) {
 	log.WithField("Fullpath", fullpath).Debug("New File Created")
 
 	duration := time.Second * time.Duration(config.WaitInterval)
 	log.WithField("Seconds", config.WaitInterval).Debug("Sleeping")
 	time.Sleep(duration)
 
-	info, err := os.Stat(fullpath)
+	queueFile(fullpath)
+}
 
-	fileHandler(fullpath, info, err)
+func queueFile(fullpath string) {
+	log.WithField("Fullpath", fullpath).Debug("Queueing File")
+	fileQueue.Push(fullpath)
 }
 
 func main() {
@@ -294,12 +316,14 @@ func main() {
 	//Load configuration
 	loadConfig(configFile)
 
+	fileQueue = oqueue.NewQueue(fileHandler, config.MaxConcurrentFiles)
+
 	//Initialization connection to ElasticSearch
 	initES()
 
 	go func() {
 		//Handle all the existing files
-		filepath.Walk(config.WatchFolder, fileHandlerSpawn)
+		filepath.Walk(config.WatchFolder, fileWalkHandler)
 		flushQueue()
 	}()
 
@@ -319,7 +343,7 @@ func main() {
 					return
 				}
 				if event.Op&fsnotify.Create == fsnotify.Create {
-					go queueFile(event.Name)
+					go waitFile(event.Name)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -332,7 +356,7 @@ func main() {
 
 	err = watcher.Add(config.WatchFolder)
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Fatal("Unable to create folder watcher")
 	}
 	log.WithField("Folder", config.WatchFolder).Info("Watching Folder")
 

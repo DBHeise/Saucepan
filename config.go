@@ -26,6 +26,7 @@ type extraparsing struct {
 }
 type configuration struct {
 	WatchFolder        string         `json:"WatchFolder"`
+	MaxConcurrentFiles int            `json:"MaxConcurrentFiles"`
 	DoneFolder         string         `json:"DoneFolder"`
 	MoveAfterProcessed bool           `json:"MoveAfterProcessed"`
 	IgnoreList         []string       `json:"IgnoreList"`
@@ -42,6 +43,7 @@ func createDefaultConfig() {
 	defaultConfig := &configuration{
 		WatchFolder:        ".\\Watch",
 		DoneFolder:         ".\\Done",
+		MaxConcurrentFiles: 3,
 		MoveAfterProcessed: true,
 		SaveNoSauce:        false,
 		NoSauceFile:        "nojuice.csv",

@@ -18,10 +18,11 @@ func TestReadWriteConfig(t *testing.T) {
 	expected := &configuration{
 		WatchFolder:        "/data/test/folder/input",
 		DoneFolder:         "T:\\data\\test\\folder\\output",
+		MaxConcurrentFiles: 6,
 		MoveAfterProcessed: true,
 		SaveNoSauce:        false,
 		NoSauceFile:        "asdf.csv",
-		WaitInterval:       30,
+		WaitInterval:       17,
 		CyberSaucier:       "http://1.2.3.4:9999",
 		IgnoreList:         make([]string, 0),
 		CSVOptions: csvconfig{
