@@ -198,49 +198,59 @@ func fileHandler(obj interface{}) {
 					parseExtra(&obj, record, checkvalue)
 
 					//Send to CyberSaucier
-					cybers, err := sendToCyberS(checkvalue)
-					if err != nil {
-						log.WithError(err).Warn("Error in CyberSaucier")
-						hadAnyErrors = true
-					}
-
-					//Append CyberSaucier results to obj
-					cResults := make([]map[string]interface{}, 0)
-					for _, result := range cybers {
-						if val, ok := result["result"]; ok && len(val.(string)) > 0 {
-							cResults = append(cResults, result)
+					if config.CyberSaucier.Enabled {
+						cybers, err := sendToCyberS(checkvalue)
+						if err != nil {
+							log.WithError(err).Warn("Error in CyberSaucier")
+							hadAnyErrors = true
 						}
-					}
 
-					//Only push if there are results
-					if len(cResults) > 0 {
-						cs := make([]interface{}, 0)
-						hitlist := make([]string, 0)
-						recipeNameList := make([]string, 0)
-						for _, item := range cResults {
-							rslt := item["result"].(string)
-							if fieldname, ok := item["fieldname"]; ok {
-								obj[fieldname.(string)] = strings.Split(rslt, "\n")
-							} else {
-								cs = append(cs, item)
-								hitlist = append(hitlist, strings.Split(rslt, "\n")...)
-								recipeNameList = append(recipeNameList, item["recipeName"].(string))
+						//Append CyberSaucier results to obj
+						cResults := make([]map[string]interface{}, 0)
+						for _, result := range cybers {
+							if val, ok := result["result"]; ok && len(val.(string)) > 0 {
+								cResults = append(cResults, result)
 							}
 						}
 
-						obj["Hits"] = hitlist
-						obj["RecipeNames"] = recipeNameList
-						obj["CyberSaucier"] = cs
+						//Only push if there are results
+						if len(cResults) > 0 {
+							cs := make([]interface{}, 0)
+							hitlist := make([]string, 0)
+							recipeNameList := make([]string, 0)
+							for _, item := range cResults {
+								rslt := item["result"].(string)
+								if fieldname, ok := item["fieldname"]; ok {
+									obj[fieldname.(string)] = strings.Split(rslt, "\n")
+								} else {
+									cs = append(cs, item)
+									hitlist = append(hitlist, strings.Split(rslt, "\n")...)
+									recipeNameList = append(recipeNameList, item["recipeName"].(string))
+								}
+							}
 
+							obj["Hits"] = hitlist
+							obj["RecipeNames"] = recipeNameList
+							obj["CyberSaucier"] = cs
+
+							//Send to ES
+							err = sendDataToES(obj)
+							if err != nil {
+								log.WithError(err).Warn("Error in CyberSaucier")
+								hadAnyErrors = true
+							}
+						} else {
+							if config.SaveNoSauce {
+								nojuice = append(nojuice, record)
+							}
+						}
+					} else {
+						//CyberSaucier is disabled - push it all
 						//Send to ES
 						err = sendDataToES(obj)
 						if err != nil {
 							log.WithError(err).Warn("Error in CyberSaucier")
 							hadAnyErrors = true
-						}
-					} else {
-						if config.SaveNoSauce {
-							nojuice = append(nojuice, record)
 						}
 					}
 				}

@@ -26,8 +26,9 @@ type extraparsing struct {
 	End   string `json:"End"`
 }
 type cybersaucierConfig struct {
-	URL   string `json:"URL"`
-	Query string `json:"Query"`
+	Enabled bool   `json:"Enabled"`
+	URL     string `json:"URL"`
+	Query   string `json:"Query"`
 }
 type configuration struct {
 	WatchFolder        string             `json:"WatchFolder"`
@@ -54,8 +55,9 @@ func createDefaultConfig() {
 		NoSauceFile:        "nojuice.csv",
 		WaitInterval:       30,
 		CyberSaucier: cybersaucierConfig{
-			URL:   "",
-			Query: "",
+			Enabled: false,
+			URL:     "",
+			Query:   "",
 		},
 		IgnoreList: make([]string, 0),
 		CSVOptions: csvconfig{
