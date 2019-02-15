@@ -23,8 +23,10 @@ func TestReadWriteConfig(t *testing.T) {
 		SaveNoSauce:        false,
 		NoSauceFile:        "asdf.csv",
 		WaitInterval:       17,
-		CyberSaucier:       "http://1.2.3.4:9999",
-		IgnoreList:         make([]string, 0),
+		CyberSaucier: cybersaucierConfig{
+			URL: "http://127.0.0.1:7000",
+		},
+		IgnoreList: make([]string, 0),
 		CSVOptions: csvconfig{
 			FirstRowHeader: false,
 			CaptureColumn:  0,
@@ -64,8 +66,10 @@ func TestEnvironmentOverride(t *testing.T) {
 		SaveNoSauce:        false,
 		NoSauceFile:        "asdf.csv",
 		WaitInterval:       30,
-		CyberSaucier:       "http://1.2.3.4:9999",
-		IgnoreList:         make([]string, 0),
+		CyberSaucier: cybersaucierConfig{
+			URL: "http://127.0.0.1:7000",
+		},
+		IgnoreList: make([]string, 0),
 		CSVOptions: csvconfig{
 			FirstRowHeader: false,
 			CaptureColumn:  1,
@@ -82,13 +86,17 @@ func TestEnvironmentOverride(t *testing.T) {
 
 	saveConfig(fullFile, expected)
 
-	os.Setenv("SAUCE_CSV_CAPTURECOLUMN", "10")
+	os.Setenv("SAUCE_WaitInterval", "13")
+	os.Setenv("SAUCE_CSVOptions_CaptureColumn", "10")
+	os.Setenv("SAUCE_CyberSaucier_Query", "?match=FooBar")
 
 	loadConfig(fullFile)
 
 	actual := config
 
+	assert.EqualValues(t, 13, actual.WaitInterval)
 	assert.EqualValues(t, 10, actual.CSVOptions.CaptureColumn)
+	assert.EqualValues(t, "?match=FooBar", actual.CyberSaucier.Query)
 
 	os.Remove(fullFile)
 }

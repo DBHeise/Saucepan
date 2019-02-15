@@ -44,7 +44,7 @@ func sendToCyberS(input string) ([]map[string]interface{}, error) {
 			TLSHandshakeTimeout: 5 * time.Second,
 		}),
 	}
-	resp, err := client.Post(config.CyberSaucier, "text/plain", strings.NewReader(input))
+	resp, err := client.Post(config.CyberSaucier.URL+config.CyberSaucier.Query, "text/plain", strings.NewReader(input))
 	if err != nil {
 		return nil, err
 	}

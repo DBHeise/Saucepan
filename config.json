@@ -2,7 +2,9 @@
     "MoveAfterProcessed": true,
     "WatchFolder": "/data/input",
     "DoneFolder": "/data/output",
-    "CyberSaucier" : "http://127.0.0.1:7000",
+    "CyberSaucier": {
+        "URL": "http://127.0.0.1:7000"      
+    },
     "WaitInterval" : 60,
     "SaveNoSauce": true,
     "NoSauceFile": "nosauce.csv",
