@@ -52,6 +52,9 @@ func sendDataToES(object map[string]interface{}) error {
 	if len(queue) >= config.ElasticSearch.QueueSize || int(time.Now().Sub(lastFlush).Seconds()) >= config.WaitInterval {
 		flushQueue()
 		lastFlush = time.Now()
+
+		log.WithField("Seconds", config.ElasticSearch.Sleep).Debug("Sleeping")
+		time.Sleep(time.Second * time.Duration(config.ElasticSearch.Sleep))
 	}
 	return nil
 }

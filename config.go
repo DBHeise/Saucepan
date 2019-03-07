@@ -19,6 +19,7 @@ type esconfig struct {
 	DTMask     string `json:"DTMask"`
 	Type       string `json:"Type"`
 	QueueSize  int    `json:"QueueSize"`
+	Sleep      int    `json:"Sleep"`
 }
 type extraparsing struct {
 	Name  string `json:"Name"`
@@ -45,7 +46,7 @@ type configuration struct {
 	ExtraParsing       []extraparsing     `json:"ExtraParsing"`
 }
 
-func createDefaultConfig() {
+func createDefaultConfig() *configuration {
 	defaultConfig := &configuration{
 		WatchFolder:        ".\\Watch",
 		DoneFolder:         ".\\Done",
@@ -70,10 +71,12 @@ func createDefaultConfig() {
 			DTMask:     "20060102",
 			Type:       "data",
 			QueueSize:  100,
+			Sleep:      0,
 		},
 		ExtraParsing: make([]extraparsing, 0),
 	}
-	saveConfig("./config.json", defaultConfig)
+	return defaultConfig
+	//saveConfig("./config.json", defaultConfig)
 }
 
 func saveConfig(filepath string, cfg *configuration) {
@@ -104,7 +107,7 @@ func loadConfig(filepath string) {
 	defer file.Close()
 
 	jsonDecoder := json.NewDecoder(file)
-	config = &configuration{}
+	config = createDefaultConfig()
 	err = jsonDecoder.Decode(config)
 	if err != nil {
 		log.WithError(err).Fatal("Could not decode json configuration")
