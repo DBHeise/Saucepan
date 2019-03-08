@@ -81,7 +81,7 @@ All configuration can be set either with a json file or environment variables pr
 ```
 
 ### Example Environment Variables (almost same config as the json)
-IgnoreList and ExtraParsing are not supported via environment variables
+ExtraParsing is not supported via environment variables
 ```
 set SAUCE_MoveAfterProcessed=true
 set SAUCE_WatchFolder=E:\temp\CSV\input
@@ -99,4 +99,5 @@ set SAUCE_ElasticSearch_IndexStart=cybersaucier-
 set SAUCE_ElasticSearch_DTMask=2006-01-02
 set SAUCE_ElasticSearch_Type=juice
 set SAUCE_ElasticSearch_QueueSize=100
+set SAUCE_IgnoreList=completed|ignore|nojuice
 ```
