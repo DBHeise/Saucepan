@@ -187,7 +187,6 @@ func getFromEnvVariables(parent string, obj interface{}) {
 					} else if kind == reflect.Slice { //We're ASSUMING its a slice of string
 						valSlice := reflect.ValueOf(strings.Split(value, "|"))
 						f.Set(reflect.Append(valSlice))
-
 					} else {
 						log.WithField("Kind", kind).Info("Other kind")
 					}

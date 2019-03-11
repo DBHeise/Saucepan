@@ -186,7 +186,9 @@ func fileHandler(obj interface{}) {
 						for i := 0; i < numRecords; i++ {
 							switch headers[i] {
 							case "dest_ip":
+								fallthrough
 							case "dest_port":
+								fallthrough
 							case "src_ip":
 								if strings.Contains(record[i], " ") {
 									obj[headers[i]] = strings.Split(record[i], " ")
@@ -196,7 +198,6 @@ func fileHandler(obj interface{}) {
 								break
 							default:
 								obj[headers[i]] = record[i]
-
 							}
 						}
 					}
