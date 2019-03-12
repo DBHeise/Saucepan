@@ -9,4 +9,4 @@ FROM scratch
 WORKDIR /saucepan
 ADD config.json ./
 COPY --from=builder /go/src/github.com/DBHeise/saucepan/saucepan ./saucepan
-CMD ["./saucepan", "--loglevel", "debug"]
+CMD ["./saucepan", "--loglevel", "info"]
