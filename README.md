@@ -29,6 +29,7 @@ All configuration can be set either with a json file or environment variables pr
 * MaxConcurrentFiles - int - the maximum number of files to process simultaniously
 * SaveNoSauce - bool - should we save a records that do NOT have any valid hits from CyberChef
 * NoSauceFile - string(filename) - file to use to save records that do NOT have any valid hits from CyberChef (will be in the DoneFolder)
+    - supports optional ```$date$``` macro for including the current date time in the nosaucefile
 * IgnoreList - array of string - if any of these strings are found in the path of the file, it will not be processed
 * CSVOptions - object - Options for CSV parsing
     - FirstRowHeader - bool - is the first row in the CSV the header names

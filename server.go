@@ -285,7 +285,15 @@ func fileHandler(obj interface{}) {
 				}
 
 				if config.SaveNoSauce && len(nojuice) > 0 {
-					outFile := path.Join(config.DoneFolder, config.NoSauceFile)
+
+					//TODO make this better
+					nosaucefile := config.NoSauceFile
+					if strings.Contains(nosaucefile, "$date$") {
+						dt := time.Now().Format("2006-01-02")
+						nosaucefile = strings.Replace(nosaucefile, "$date$", dt, -1)
+					}
+
+					outFile := path.Join(config.DoneFolder, nosaucefile)
 					oFile, err := os.OpenFile(outFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 					if err != nil {
 						log.WithError(err).Warn("Error opening NoSauceFile")

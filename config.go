@@ -54,7 +54,7 @@ func createDefaultConfig() *configuration {
 		MaxConcurrentFiles: 3,
 		MoveAfterProcessed: true,
 		SaveNoSauce:        false,
-		NoSauceFile:        "nojuice.csv",
+		NoSauceFile:        "nojuice_$date$.csv",
 		WaitInterval:       30,
 		CyberSaucier: cybersaucierConfig{
 			Enabled: false,
