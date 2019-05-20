@@ -20,7 +20,11 @@ func initES() {
 	var err error
 	esContext = context.Background()
 	queue = make([]map[string]interface{}, 0)
-	esClient, err = elastic.NewClient(elastic.SetURL(config.ElasticSearch.URL))
+	if config.ElasticSearch.UserName != "" {
+		esClient, err = elastic.NewClient(elastic.SetURL(config.ElasticSearch.URL), elastic.SetBasicAuth(config.ElasticSearch.UserName, config.ElasticSearch.Password))
+	} else {
+		esClient, err = elastic.NewClient(elastic.SetURL(config.ElasticSearch.URL))
+	}
 	if err != nil {
 		log.WithError(err).Fatal("Unable to create an ElasticSearch Client")
 	}
@@ -47,14 +51,16 @@ func flushQueue() {
 }
 
 func sendDataToES(object map[string]interface{}) error {
-	queue = append(queue, object)
+	if config.ElasticSearch.Enabled {
+		queue = append(queue, object)
 
-	if len(queue) >= config.ElasticSearch.QueueSize || int(time.Now().Sub(lastFlush).Seconds()) >= config.WaitInterval {
-		flushQueue()
-		lastFlush = time.Now()
+		if len(queue) >= config.ElasticSearch.QueueSize || int(time.Now().Sub(lastFlush).Seconds()) >= config.WaitInterval {
+			flushQueue()
+			lastFlush = time.Now()
 
-		log.WithField("Seconds", config.ElasticSearch.Sleep).Debug("Sleeping")
-		time.Sleep(time.Second * time.Duration(config.ElasticSearch.Sleep))
+			log.WithField("Seconds", config.ElasticSearch.Sleep).Debug("Sleeping")
+			time.Sleep(time.Second * time.Duration(config.ElasticSearch.Sleep))
+		}
 	}
 	return nil
 }

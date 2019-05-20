@@ -36,6 +36,8 @@ func TestReadWriteConfig(t *testing.T) {
 			IndexStart: "aetfha",
 			DTMask:     "20060102",
 			Type:       "jhrt",
+			UserName:   "bob",
+			Password:   "secretpasswordyo",
 			QueueSize:  1,
 		},
 		ExtraParsing: make([]extraparsing, 0),
@@ -89,6 +91,7 @@ func TestEnvironmentOverride(t *testing.T) {
 	os.Setenv("SAUCE_WaitInterval", "13")
 	os.Setenv("SAUCE_CSVOptions_CaptureColumn", "10")
 	os.Setenv("SAUCE_CyberSaucier_Query", "?match=FooBar")
+	os.Setenv("SAUCE_ElasticSearch_Password", "")
 
 	loadConfig(fullFile)
 
@@ -97,6 +100,6 @@ func TestEnvironmentOverride(t *testing.T) {
 	assert.EqualValues(t, 13, actual.WaitInterval)
 	assert.EqualValues(t, 10, actual.CSVOptions.CaptureColumn)
 	assert.EqualValues(t, "?match=FooBar", actual.CyberSaucier.Query)
-
+	assert.EqualValues(t, "", actual.ElasticSearch.Password)
 	os.Remove(fullFile)
 }

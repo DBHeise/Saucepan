@@ -15,8 +15,11 @@ type csvconfig struct {
 	CaptureColumn  int  `json:"CaptureColumn"`
 }
 type esconfig struct {
+	Enabled    bool   `json:"Enabled"`
 	URL        string `json:"URL"`
 	IndexStart string `json:"IndexStart"`
+	UserName   string `json:"UserName"`
+	Password   string `json:"Password"`
 	DTMask     string `json:"DTMask"`
 	Type       string `json:"Type"`
 	QueueSize  int    `json:"QueueSize"`
@@ -67,6 +70,7 @@ func createDefaultConfig() *configuration {
 			CaptureColumn:  0,
 		},
 		ElasticSearch: esconfig{
+			Enabled:    false,
 			URL:        "",
 			IndexStart: "cybersaucier-",
 			DTMask:     "20060102",
