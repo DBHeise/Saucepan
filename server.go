@@ -17,8 +17,8 @@ import (
 
 	oqueue "github.com/otium/queue"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/fsnotify/fsnotify"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -35,6 +35,7 @@ func init() {
 }
 
 func sendToCyberS(input string) ([]map[string]interface{}, error) {
+	//proxyURL, _ := url.Parse("http://localhost:8888")
 	client := &http.Client{
 		Timeout: time.Second * 10,
 		Transport: (&http.Transport{
@@ -42,6 +43,7 @@ func sendToCyberS(input string) ([]map[string]interface{}, error) {
 				Timeout: 5 * time.Second,
 			}).Dial,
 			TLSHandshakeTimeout: 5 * time.Second,
+			//Proxy:               http.ProxyURL(proxyURL),
 		}),
 	}
 	resp, err := client.Post(config.CyberSaucier.URL+config.CyberSaucier.Query, "text/plain", strings.NewReader(input))
@@ -247,6 +249,7 @@ func fileHandler(obj interface{}) {
 							obj["RecipeNames"] = recipeNameList
 							obj["CyberSaucier"] = cs
 
+							log.WithFields(log.Fields{"Record": record, "CyberSaucier": cybers, "Obj": obj}).Trace("Juice")
 							//Send to ES
 							err = sendDataToES(obj)
 							if err != nil {
@@ -254,6 +257,7 @@ func fileHandler(obj interface{}) {
 								hadAnyErrors = true
 							}
 						} else {
+							log.WithFields(log.Fields{"Record": record, "CyberSaucier": cybers, "Obj": obj}).Trace("No Juice")
 							if config.SaveNoSauce {
 								nojuice = append(nojuice, record)
 							}

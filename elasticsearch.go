@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	elastic "github.com/olivere/elastic"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
