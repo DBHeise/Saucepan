@@ -24,7 +24,6 @@ import (
 var (
 	configFile string
 	loglevel   string
-	logfile    string
 	config     *configuration
 	fileQueue  *oqueue.Queue
 )
@@ -94,7 +93,7 @@ func parseExtra(obj *map[string]interface{}, records []string, checkvalue string
 func shouldIgnore(fullpath string) bool {
 	ans := false
 	for _, tst := range config.IgnoreList {
-		if strings.Index(fullpath, tst) > -1 {
+		if strings.Contains(fullpath, tst) {
 			ans = true
 			break
 		}
@@ -197,7 +196,6 @@ func fileHandler(obj interface{}) {
 								} else {
 									obj[headers[i]] = record[i]
 								}
-								break
 							default:
 								obj[headers[i]] = record[i]
 							}
@@ -281,7 +279,14 @@ func fileHandler(obj interface{}) {
 						"src": fullpath,
 						"dst": newDst,
 					}).Debug("Moving File")
-					os.Rename(fullpath, newDst)
+					err := os.Rename(fullpath, newDst)
+					if err != nil {
+						log.WithFields(log.Fields{
+							"src": fullpath,
+							"dst": newDst,
+							"err": err,
+						}).Warning("Error moving File")
+					}
 				} else {
 					log.WithFields(log.Fields{
 						"src": fullpath,
@@ -304,7 +309,10 @@ func fileHandler(obj interface{}) {
 					} else {
 						defer oFile.Close()
 						writer := csv.NewWriter(oFile)
-						writer.WriteAll(nojuice)
+						err := writer.WriteAll(nojuice)
+						if err != nil {
+							log.WithError(err).Warn("Failure writing to NoSauceFile")
+						}
 
 						if err := writer.Error(); err != nil {
 							log.WithError(err).Warn("Failure writing to NoSauceFile")
@@ -359,7 +367,10 @@ func main() {
 
 	go func() {
 		//Handle all the existing files
-		filepath.Walk(config.WatchFolder, fileWalkHandler)
+		err := filepath.Walk(config.WatchFolder, fileWalkHandler)
+		if err != nil {
+			log.WithError(err).Warning("Error walking filepath")
+		}
 		flushQueue()
 	}()
 

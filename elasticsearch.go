@@ -54,7 +54,7 @@ func sendDataToES(object map[string]interface{}) error {
 	if config.ElasticSearch.Enabled {
 		queue = append(queue, object)
 
-		if len(queue) >= config.ElasticSearch.QueueSize || int(time.Now().Sub(lastFlush).Seconds()) >= config.WaitInterval {
+		if len(queue) >= config.ElasticSearch.QueueSize || int(time.Since(lastFlush).Seconds()) >= config.WaitInterval {
 			flushQueue()
 			lastFlush = time.Now()
 

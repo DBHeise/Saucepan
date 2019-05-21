@@ -1,4 +1,4 @@
-module "https://github.com/DBHeise/Saucepan"
+module saucepan
 
 go 1.12
 
@@ -9,4 +9,5 @@ require (
 	github.com/otium/queue v0.0.0-20130722223348-9aab6b722ecd
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sirupsen/logrus v1.4.2
+	github.com/stretchr/testify v1.2.2
 )
