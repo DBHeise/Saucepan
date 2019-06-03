@@ -45,7 +45,14 @@ func sendToCyberS(input string) ([]map[string]interface{}, error) {
 			//Proxy:               http.ProxyURL(proxyURL),
 		}),
 	}
-	resp, err := client.Post(config.CyberSaucier.URL+config.CyberSaucier.Query, "text/plain", strings.NewReader(input))
+	req, reqErr := http.NewRequest("POST", config.CyberSaucier.URL+config.CyberSaucier.Query, strings.NewReader(input))
+	if reqErr != nil {
+		return nil, reqErr
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("Connection", "close")
+	req.Close = true
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
