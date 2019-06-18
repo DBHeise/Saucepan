@@ -53,6 +53,7 @@ func flushQueue() {
 func sendDataToES(object map[string]interface{}) error {
 	if config.ElasticSearch.Enabled {
 		queue = append(queue, object)
+		lastOutputActionTime = time.Now()
 
 		if len(queue) >= config.ElasticSearch.QueueSize || int(time.Since(lastFlush).Seconds()) >= config.WaitInterval {
 			flushQueue()
@@ -61,6 +62,7 @@ func sendDataToES(object map[string]interface{}) error {
 			log.WithField("Seconds", config.ElasticSearch.Sleep).Debug("Sleeping")
 			time.Sleep(time.Second * time.Duration(config.ElasticSearch.Sleep))
 		}
+
 	}
 	return nil
 }

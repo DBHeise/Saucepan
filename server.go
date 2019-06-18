@@ -347,6 +347,7 @@ func waitFile(fullpath string) {
 func queueFile(fullpath string) {
 	log.WithField("Fullpath", fullpath).Debug("Queueing File")
 	fileQueue.Push(fullpath)
+	lastInputActionTime = time.Now()
 }
 
 func main() {
@@ -380,6 +381,9 @@ func main() {
 		}
 		flushQueue()
 	}()
+
+	go timerInputWatcher()
+	go timerOutputWatcher()
 
 	//Setup folder watcher
 	watcher, err := fsnotify.NewWatcher()

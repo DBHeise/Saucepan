@@ -35,8 +35,25 @@ type cybersaucierConfig struct {
 	URL     string `json:"URL"`
 	Query   string `json:"Query"`
 }
+
+type alertConfig struct {
+	Threshold int    `json:"Threshold"`
+	Email     string `json:"Email"`
+}
+
+type smtpConfig struct {
+	From     string `json:"From"`
+	Server   string `json:"Server"`
+	Port     int    `json:"Port"`
+	User     string `json:"User"`
+	Password string `json:"Password"`
+}
+
 type configuration struct {
+	Name               string             `json:"Name"`
 	WatchFolder        string             `json:"WatchFolder"`
+	InputAlert         alertConfig        `json:"InputAlert"`
+	OutputAlert        alertConfig        `json:"OutputAlert"`
 	MaxConcurrentFiles int                `json:"MaxConcurrentFiles"`
 	DoneFolder         string             `json:"DoneFolder"`
 	MoveAfterProcessed bool               `json:"MoveAfterProcessed"`
@@ -48,11 +65,17 @@ type configuration struct {
 	CSVOptions         csvconfig          `json:"CSVOptions"`
 	ElasticSearch      esconfig           `json:"ElasticSearch"`
 	ExtraParsing       []extraparsing     `json:"ExtraParsing"`
+	MailConfig         smtpConfig         `json:"MailConfig"`
 }
 
 func createDefaultConfig() *configuration {
 	defaultConfig := &configuration{
-		WatchFolder:        ".\\Watch",
+		Name:        "Empty",
+		WatchFolder: ".\\Watch",
+		InputAlert: alertConfig{
+			Threshold: -1,
+			Email:     "",
+		},
 		DoneFolder:         ".\\Done",
 		MaxConcurrentFiles: 3,
 		MoveAfterProcessed: true,

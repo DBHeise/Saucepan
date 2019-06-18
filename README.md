@@ -17,6 +17,7 @@ SaucePan takes your CSV logs runs them through CyberChef (via [CyberSaucier](htt
 
 ## Configuration
 All configuration can be set either with a json file or environment variables prepended with "SAUCE_"
+* Name - string - this is a string used to differentiate this saucepan from other saucepans that may or may not be running
 * MoveAfterProcessed - bool - should the files be moved from the input folder to the output folder after it is successfully processed
 * WatchFolder - string(path) - The path to monitor for files (includes all subfolders)
 * DoneFolder - string(path) - The path to place files when they are completed
@@ -45,10 +46,22 @@ All configuration can be set either with a json file or environment variables pr
     - Name - string - Name to use in the ES record
     - Start - string - String to match on that occurs before the capture text
     - End - string  - String to match on that occurs after the capture text
+* InputAlert 
+    - Threshold - int - the time (in seconds) passed before an alert email is sent in input file ingestion (e.g. if set to 60 then if more than 60 seconds passes between recieving input files, an alert will be sent)
+    - Email - string - the email address that will recieve the alert email 
+* OutputAlert
+    - Threshold - int - the time (in seconds) passed between queueing data to ElasticSearch before an alert email is sent (e.g. if set to 60 then if more than 60 seconds passes between queueing data to send to ES, an alert will be sent)
+    - Email - string - the email address that will recieve the alert email 
+* MailConfig
+    - From - string - the email address the alerts will be sent from
+    - Server - string - the SMTP server handling the emails
+    - Port - int - the port the SMTP server is listening on
+    - User - string - the user used to authenticate to the SMTP Server
+    - Password - string - the password used to authenticate to the SMTP Server
 
 ### Example config.json
 ```
-{
+{    
     "MoveAfterProcessed": true,
     "WatchFolder": "E:/temp/CSV/input",
     "DoneFolder": "E:/temp/CSV/output",

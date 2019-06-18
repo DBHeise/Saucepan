@@ -10,4 +10,5 @@ require (
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.2.2
+	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 )
