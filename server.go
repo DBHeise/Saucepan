@@ -33,7 +33,6 @@ var (
 func init() {
 	flag.StringVar(&configFile, "config", "config.json", "Configuration file To use")
 	flag.StringVar(&loglevel, "loglevel", "warn", "Level of debugging {debug|info|warn|error|panic}")
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 }
 
 func sendToCyberS(input string) ([]map[string]interface{}, error) {
@@ -372,6 +371,10 @@ func main() {
 	loadConfig(configFile)
 
 	fileQueue = oqueue.NewQueue(fileHandler, config.MaxConcurrentFiles)
+
+	if config.IgnoreCertErrors {
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
 
 	//Initialization connection to ElasticSearch
 	initES()

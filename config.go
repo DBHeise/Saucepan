@@ -15,15 +15,16 @@ type csvconfig struct {
 	CaptureColumn  int  `json:"CaptureColumn"`
 }
 type esconfig struct {
-	Enabled    bool   `json:"Enabled"`
-	URL        string `json:"URL"`
-	IndexStart string `json:"IndexStart"`
-	UserName   string `json:"UserName"`
-	Password   string `json:"Password"`
-	DTMask     string `json:"DTMask"`
-	Type       string `json:"Type"`
-	QueueSize  int    `json:"QueueSize"`
-	Sleep      int    `json:"Sleep"`
+	Enabled         bool   `json:"Enabled"`
+	URL             string `json:"URL"`
+	IndexStart      string `json:"IndexStart"`
+	UserName        string `json:"UserName"`
+	Password        string `json:"Password"`
+	DTMask          string `json:"DTMask"`
+	Type            string `json:"Type"`
+	QueueSize       int    `json:"QueueSize"`
+	Sleep           int    `json:"Sleep"`
+	UseSimpleClient bool   `json:"UseSimpleClient"`
 }
 type extraparsing struct {
 	Name  string `json:"Name"`
@@ -51,6 +52,7 @@ type smtpConfig struct {
 
 type configuration struct {
 	Name               string             `json:"Name"`
+	IgnoreCertErrors   bool               `json:"IgnoreCertErrors"`
 	WatchFolder        string             `json:"WatchFolder"`
 	InputAlert         alertConfig        `json:"InputAlert"`
 	OutputAlert        alertConfig        `json:"OutputAlert"`
@@ -70,8 +72,9 @@ type configuration struct {
 
 func createDefaultConfig() *configuration {
 	defaultConfig := &configuration{
-		Name:        "Empty",
-		WatchFolder: ".\\Watch",
+		Name:             "Empty",
+		IgnoreCertErrors: false,
+		WatchFolder:      ".\\Watch",
 		InputAlert: alertConfig{
 			Threshold: -1,
 			Email:     "",
@@ -93,13 +96,14 @@ func createDefaultConfig() *configuration {
 			CaptureColumn:  0,
 		},
 		ElasticSearch: esconfig{
-			Enabled:    false,
-			URL:        "",
-			IndexStart: "cybersaucier-",
-			DTMask:     "20060102",
-			Type:       "data",
-			QueueSize:  100,
-			Sleep:      0,
+			Enabled:         false,
+			URL:             "",
+			IndexStart:      "cybersaucier-",
+			DTMask:          "20060102",
+			Type:            "data",
+			QueueSize:       100,
+			Sleep:           0,
+			UseSimpleClient: true,
 		},
 		ExtraParsing: make([]extraparsing, 0),
 	}
