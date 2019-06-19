@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
@@ -9,6 +10,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+
 	"os"
 	"path"
 	"path/filepath"
@@ -31,6 +33,7 @@ var (
 func init() {
 	flag.StringVar(&configFile, "config", "config.json", "Configuration file To use")
 	flag.StringVar(&loglevel, "loglevel", "warn", "Level of debugging {debug|info|warn|error|panic}")
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 }
 
 func sendToCyberS(input string) ([]map[string]interface{}, error) {
