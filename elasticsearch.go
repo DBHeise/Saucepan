@@ -21,9 +21,9 @@ func initES() {
 	esContext = context.Background()
 	queue = make([]map[string]interface{}, 0)
 	if config.ElasticSearch.UserName != "" {
-		esClient, err = elastic.NewClient(elastic.SetURL(config.ElasticSearch.URL), elastic.SetBasicAuth(config.ElasticSearch.UserName, config.ElasticSearch.Password))
+		esClient, err = elastic.NewSimpleClient(elastic.SetURL(config.ElasticSearch.URL), elastic.SetBasicAuth(config.ElasticSearch.UserName, config.ElasticSearch.Password))
 	} else {
-		esClient, err = elastic.NewClient(elastic.SetURL(config.ElasticSearch.URL))
+		esClient, err = elastic.NewSimpleClient(elastic.SetURL(config.ElasticSearch.URL))
 	}
 	if err != nil {
 		log.WithError(err).Fatal("Unable to create an ElasticSearch Client")
