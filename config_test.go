@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -22,6 +23,7 @@ func TestReadWriteConfig(t *testing.T) {
 		MoveAfterProcessed: true,
 		SaveNoSauce:        false,
 		NoSauceFile:        "asdf.csv",
+		ParseErrorFile:     "lkjf.csv",
 		WaitInterval:       17,
 		CyberSaucier: cybersaucierConfig{
 			URL: "http://127.0.0.1:7000",
@@ -67,6 +69,7 @@ func TestEnvironmentOverride(t *testing.T) {
 		MoveAfterProcessed: true,
 		SaveNoSauce:        false,
 		NoSauceFile:        "asdf.csv",
+		ParseErrorFile:     "lkjf.csv",
 		WaitInterval:       30,
 		CyberSaucier: cybersaucierConfig{
 			URL: "http://127.0.0.1:7000",
@@ -102,4 +105,18 @@ func TestEnvironmentOverride(t *testing.T) {
 	assert.EqualValues(t, "?match=FooBar", actual.CyberSaucier.Query)
 	assert.EqualValues(t, "", actual.ElasticSearch.Password)
 	os.Remove(fullFile)
+}
+
+func TestMacros(t *testing.T) {
+	config := createDefaultConfig()
+	config.NoSauceFile = "test_$date$.csv"
+	config.ParseErrorFile = "parseError_$name$_$date$.csv"
+
+	dt := time.Now().Format("2006-01-02_150405")
+	assert.EqualValues(t, dt, config.doMacro("$date$_$time$"))
+
+	d := time.Now().Format("2006-01-02")
+	assert.EqualValues(t, "test_"+d+".csv", config.GetMacrod("NoSauceFile"))
+	assert.EqualValues(t, "parseError_"+config.Name+"_"+d+".csv", config.GetMacrod("ParseErrorFile"))
+
 }

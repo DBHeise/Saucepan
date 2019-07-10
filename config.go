@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -62,12 +63,40 @@ type configuration struct {
 	IgnoreList         []string           `json:"IgnoreList"`
 	SaveNoSauce        bool               `json:"SaveNoSauce"`
 	NoSauceFile        string             `json:"NoSauceFile"`
+	ParseErrorFile     string             `json:"ParseErrorFile"`
 	WaitInterval       int                `json:"WaitInterval"`
 	CyberSaucier       cybersaucierConfig `json:"CyberSaucier"`
 	CSVOptions         csvconfig          `json:"CSVOptions"`
 	ElasticSearch      esconfig           `json:"ElasticSearch"`
 	ExtraParsing       []extraparsing     `json:"ExtraParsing"`
 	MailConfig         smtpConfig         `json:"MailConfig"`
+}
+
+func (c *configuration) doMacro(input string) string {
+	output := input
+	if strings.Contains(output, "$date$") {
+		dt := time.Now().Format("2006-01-02")
+		output = strings.Replace(output, "$date$", dt, -1)
+	}
+	if strings.Contains(output, "$time$") {
+		dt := time.Now().Format("150405")
+		output = strings.Replace(output, "$time$", dt, -1)
+	}
+	if strings.Contains(output, "$name$") {
+		output = strings.Replace(output, "$name$", c.Name, -1)
+	}
+	return output
+}
+
+func (c *configuration) GetMacrod(name string) string {
+	output := ""
+	switch name {
+	case "NoSauceFile":
+		output = c.doMacro(c.NoSauceFile)
+	case "ParseErrorFile":
+		output = c.doMacro(c.ParseErrorFile)
+	}
+	return output
 }
 
 func createDefaultConfig() *configuration {
@@ -84,6 +113,7 @@ func createDefaultConfig() *configuration {
 		MoveAfterProcessed: true,
 		SaveNoSauce:        false,
 		NoSauceFile:        "nojuice_$date$.csv",
+		ParseErrorFile:     "parseerrors_$date$.csv",
 		WaitInterval:       30,
 		CyberSaucier: cybersaucierConfig{
 			Enabled: false,

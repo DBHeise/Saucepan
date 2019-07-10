@@ -1,8 +1,12 @@
 package main
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,4 +52,66 @@ func TestShouldIgnore_noStrings(t *testing.T) {
 	assert.False(t, shouldIgnore("hi_i_am_a_♬_string"))
 	assert.False(t, shouldIgnore("another-string"))
 	assert.False(t, shouldIgnore("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+}
+
+func TestBadCSVFiles(t *testing.T) {
+	//Generate test config
+	config = createDefaultConfig()
+	fldr1, err := ioutil.TempDir(os.TempDir(), "saucepan_input_")
+	if err != nil {
+		t.Errorf("Could not create temporary folder: %s", err)
+	}
+	fldr2, err := ioutil.TempDir(os.TempDir(), "saucepan_output_")
+	if err != nil {
+		t.Errorf("Could not create temporary folder: %s", err)
+	}
+
+	config.WatchFolder = fldr1
+	config.DoneFolder = fldr2
+	config.CSVOptions.FirstRowHeader = true
+	config.CSVOptions.CaptureColumn = 99999
+	config.CyberSaucier.Enabled = false
+	config.ElasticSearch.UseSimpleClient = true
+	config.ElasticSearch.Enabled = false
+
+	//Copy test files
+	baseInFolder, err := filepath.Abs(".")
+	if err != nil {
+		t.Errorf("Unable to resolve current path: %s", err)
+	}
+	testFolder := filepath.Join(baseInFolder, "testfiles")
+	err = copy.Copy(testFolder, config.WatchFolder)
+	if err != nil {
+		t.Errorf("Unable to copy test files to input folder: %s", err)
+	}
+
+	//Get test files
+	testfiles, err := ioutil.ReadDir(config.WatchFolder)
+	if err != nil {
+		t.Errorf("Unable to read Watch Folder")
+	}
+
+	//Process each file
+	for _, tfile := range testfiles {
+		filename := tfile.Name()
+		fullFilePath := filepath.Join(config.WatchFolder, filename)
+
+		fileHandler(fullFilePath)
+
+		expectedOutputFile := filepath.Join(config.DoneFolder, filename)
+		if _, err := os.Stat(expectedOutputFile); os.IsNotExist(err) {
+			assert.Fail(t, "Processed file not in done folder")
+		}
+
+	}
+
+	//Verify the results
+	expectedParseErrorFile := filepath.Join(config.DoneFolder, config.GetMacrod("ParseErrorFile"))
+	if _, err := os.Stat(expectedParseErrorFile); os.IsNotExist(err) {
+		assert.Fail(t, "Expected ParseErrorFile not in done folder")
+	}
+
+	//Cleanup
+	os.RemoveAll(config.WatchFolder)
+	os.RemoveAll(config.DoneFolder)
 }

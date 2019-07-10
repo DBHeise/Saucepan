@@ -30,6 +30,14 @@ var (
 	fileQueue  *oqueue.Queue
 )
 
+type SauceParseError struct {
+	File       string
+	Line       int
+	Column     int
+	ErrMessage string
+	Raw        string
+}
+
 func init() {
 	flag.StringVar(&configFile, "config", "config.json", "Configuration file To use")
 	flag.StringVar(&loglevel, "loglevel", "warn", "Level of debugging {debug|info|warn|error|panic}")
@@ -119,8 +127,51 @@ func fileWalkHandler(fullpath string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func fileHandler(obj interface{}) {
-	fullpath := obj.(string)
+func parseLine(filename string, line int, tag string, dtStamp string, headers []string, record []string) (map[string]interface{}, string) {
+
+	obj := make(map[string]interface{})
+	obj["FileName"] = filename
+	obj["Line"] = line
+	obj["Tag"] = tag
+	if dtStamp != "" {
+		obj["DateTime"] = dtStamp
+	}
+	numRecords := len(record)
+	var checkvalue string
+
+	if len(headers) == numRecords {
+		for i := 0; i < numRecords; i++ {
+			switch headers[i] {
+			case "dest_ip":
+				fallthrough
+			case "dest_port":
+				fallthrough
+			case "src_ip":
+				if strings.Contains(record[i], " ") {
+					obj[headers[i]] = strings.Split(record[i], " ")
+				} else {
+					obj[headers[i]] = record[i]
+				}
+			default:
+				obj[headers[i]] = record[i]
+			}
+		}
+	}
+
+	if config.CSVOptions.CaptureColumn <= numRecords {
+		checkvalue = record[config.CSVOptions.CaptureColumn]
+	} else {
+		checkvalue = strings.Join(record, ",")
+	}
+
+	//Extra parsing
+	parseExtra(&obj, record, checkvalue)
+
+	return obj, checkvalue
+}
+
+func fileHandler(infileObj interface{}) {
+	fullpath := infileObj.(string)
 	if fullpath != "" {
 		info, err := os.Stat(fullpath)
 
@@ -155,9 +206,13 @@ func fileHandler(obj interface{}) {
 				}
 
 				reader := csv.NewReader(f)
-				hadAnyErrors := false
+				reader.ReuseRecord = false
+				reader.LazyQuotes = true
+				reader.TrimLeadingSpace = true
+
 				headers := make([]string, 0)
 				nojuice := make([][]string, 0)
+				parseerrors := make([]SauceParseError, 0)
 
 				line := 0
 				if config.CSVOptions.FirstRowHeader {
@@ -177,61 +232,37 @@ func fileHandler(obj interface{}) {
 					}
 
 					if err != nil {
-						hadAnyErrors = true
-						log.WithError(err).Warn("Could not read record")
-						break
-					}
-
-					obj := make(map[string]interface{})
-					obj["FileName"] = filename
-					obj["Line"] = line
-					obj["Tag"] = tag
-					if dtStamp != "" {
-						obj["DateTime"] = dtStamp
-					}
-					numRecords := len(record)
-					var checkvalue string
-
-					if len(headers) == numRecords {
-						for i := 0; i < numRecords; i++ {
-							switch headers[i] {
-							case "dest_ip":
-								fallthrough
-							case "dest_port":
-								fallthrough
-							case "src_ip":
-								if strings.Contains(record[i], " ") {
-									obj[headers[i]] = strings.Split(record[i], " ")
-								} else {
-									obj[headers[i]] = record[i]
+						if pe, ok := err.(*csv.ParseError); ok {
+							if pe.Err != csv.ErrFieldCount {
+								spe := SauceParseError{
+									File:       fullpath,
+									Line:       line,
+									Column:     pe.Column,
+									ErrMessage: pe.Err.Error(),
+									Raw:        "",
 								}
-							default:
-								obj[headers[i]] = record[i]
+								parseerrors = append(parseerrors, spe)
 							}
+						} else {
+							log.WithError(err).Warn("Could not read record")
+							continue
 						}
 					}
 
-					if config.CSVOptions.CaptureColumn <= numRecords {
-						checkvalue = record[config.CSVOptions.CaptureColumn]
-					} else {
-						checkvalue = strings.Join(record, ",")
-					}
-
-					//Extra parsing
-					parseExtra(&obj, record, checkvalue)
+					obj, checkvalue := parseLine(filename, line, tag, dtStamp, headers, record)
 
 					//Send to CyberSaucier
 					if config.CyberSaucier.Enabled {
 						cybers, err := sendToCyberS(checkvalue)
 						if err != nil {
 							log.WithError(err).Warn("Error in CyberSaucier")
-							hadAnyErrors = true
+							//hadAnyErrors = true
 						}
 
 						//Append CyberSaucier results to obj
 						cResults := make([]map[string]interface{}, 0)
 						for _, result := range cybers {
-							if val, ok := result["result"]; ok && len(val.(string)) > 0 {
+							if val, ok := result["result"]; ok && len(val.(string)) > 0 { //looking for non-empty "result" fields
 								cResults = append(cResults, result)
 							}
 						}
@@ -261,7 +292,7 @@ func fileHandler(obj interface{}) {
 							err = sendDataToES(obj)
 							if err != nil {
 								log.WithError(err).Warn("Error in CyberSaucier")
-								hadAnyErrors = true
+								//hadAnyErrors = true
 							}
 						} else {
 							log.WithFields(log.Fields{"Record": record, "CyberSaucier": cybers, "Obj": obj}).Trace("No Juice")
@@ -275,14 +306,15 @@ func fileHandler(obj interface{}) {
 						err = sendDataToES(obj)
 						if err != nil {
 							log.WithError(err).Warn("Error in CyberSaucier")
-							hadAnyErrors = true
+							//hadAnyErrors = true
 						}
 					}
 				}
 
 				f.Close()
 
-				if !hadAnyErrors && config.MoveAfterProcessed {
+				//Move the file
+				if config.MoveAfterProcessed {
 					newDst := path.Join(config.DoneFolder, filename)
 					log.WithFields(log.Fields{
 						"src": fullpath,
@@ -296,20 +328,34 @@ func fileHandler(obj interface{}) {
 							"err": err,
 						}).Warning("Error moving File")
 					}
-				} else {
-					log.WithFields(log.Fields{
-						"src": fullpath,
-					}).Debug("File had errors")
 				}
 
-				if config.SaveNoSauce && len(nojuice) > 0 {
-
-					//TODO make this better
-					nosaucefile := config.NoSauceFile
-					if strings.Contains(nosaucefile, "$date$") {
-						dt := time.Now().Format("2006-01-02")
-						nosaucefile = strings.Replace(nosaucefile, "$date$", dt, -1)
+				//Save Parse errors
+				if len(parseerrors) > 0 {
+					parseerrorfile := config.GetMacrod("ParseErrorFile")
+					outFile := path.Join(config.DoneFolder, parseerrorfile)
+					oFile, err := os.OpenFile(outFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+					if err != nil {
+						log.WithError(err).Warn("Error opening ParseErrorFile")
+					} else {
+						defer oFile.Close()
+						for _, e := range parseerrors {
+							errorJson, err := json.Marshal(e)
+							if err != nil {
+								log.WithError(err).Warn("Error marshalling parseerror to json")
+							} else {
+								_, err = io.WriteString(oFile, string(errorJson)+"\n")
+								if err != nil {
+									log.WithError(err).Warn("Error writing to ParseErrorFile")
+								}
+							}
+						}
 					}
+				}
+
+				//Save "NoSauce" results
+				if config.SaveNoSauce && len(nojuice) > 0 {
+					nosaucefile := config.GetMacrod("NoSauceFile")
 
 					outFile := path.Join(config.DoneFolder, nosaucefile)
 					oFile, err := os.OpenFile(outFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
@@ -370,14 +416,14 @@ func main() {
 	//Load configuration
 	loadConfig(configFile)
 
-	fileQueue = oqueue.NewQueue(fileHandler, config.MaxConcurrentFiles)
-
 	if config.IgnoreCertErrors {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
 	//Initialization connection to ElasticSearch
 	initES()
+
+	fileQueue = oqueue.NewQueue(fileHandler, config.MaxConcurrentFiles)
 
 	go func() {
 		//Handle all the existing files
