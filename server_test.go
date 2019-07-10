@@ -105,12 +105,6 @@ func TestBadCSVFiles(t *testing.T) {
 
 	}
 
-	//Verify the results
-	expectedParseErrorFile := filepath.Join(config.DoneFolder, config.GetMacrod("ParseErrorFile"))
-	if _, err := os.Stat(expectedParseErrorFile); os.IsNotExist(err) {
-		assert.Fail(t, "Expected ParseErrorFile not in done folder")
-	}
-
 	//Cleanup
 	os.RemoveAll(config.WatchFolder)
 	os.RemoveAll(config.DoneFolder)
