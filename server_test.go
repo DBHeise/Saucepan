@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -80,7 +79,7 @@ func TestBadCSVFiles(t *testing.T) {
 		t.Errorf("Unable to resolve current path: %s", err)
 	}
 	testFolder := filepath.Join(baseInFolder, "testfiles")
-	err = copy.Copy(testFolder, config.WatchFolder)
+	err = Copy(testFolder, config.WatchFolder)
 	if err != nil {
 		t.Errorf("Unable to copy test files to input folder: %s", err)
 	}
