@@ -1,4 +1,4 @@
-//taken from: https://github.com/otiai10/copy (commit: e2a7d70)
+//originally taken from: https://github.com/otiai10/copy (commit: e2a7d70)
 package main
 
 import (
@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -78,7 +80,12 @@ func dcopy(srcdir, destdir string, info os.FileInfo) error {
 		return err
 	}
 	// Recover dir mode with original one.
-	defer os.Chmod(destdir, originalMode)
+	defer func() {
+		err := os.Chmod(destdir, originalMode)
+		if err != nil {
+			log.WithError(err).Warn("Problem changing directory permissions")
+		}
+	}()
 
 	contents, err := ioutil.ReadDir(srcdir)
 	if err != nil {
