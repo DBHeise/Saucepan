@@ -158,7 +158,7 @@ func parseLine(filename string, line int, tag string, dtStamp string, headers []
 		}
 	}
 
-	if config.CSVOptions.CaptureColumn <= numRecords {
+	if config.CSVOptions.CaptureColumn < numRecords {
 		checkvalue = record[config.CSVOptions.CaptureColumn]
 	} else {
 		checkvalue = strings.Join(record, ",")
