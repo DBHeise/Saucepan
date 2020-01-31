@@ -30,6 +30,7 @@ var (
 	fileQueue  *oqueue.Queue
 )
 
+//SauceParseError - an error that occurs upon parsing a CSV line
 type SauceParseError struct {
 	File       string
 	Line       int
@@ -81,7 +82,12 @@ func sendToCyberS(input string) ([]map[string]interface{}, error) {
 	//Clean up
 	for _, item := range ans {
 		if val, ok := item["result"]; ok {
-			item["result"] = html.UnescapeString(val.(string))
+			if sval, ok := val.(string); ok {
+				item["result"] = html.UnescapeString(sval)
+			} else {
+				item["result"] = ""
+			}
+
 		}
 	}
 
@@ -340,11 +346,11 @@ func fileHandler(infileObj interface{}) {
 					} else {
 						defer oFile.Close()
 						for _, e := range parseerrors {
-							errorJson, err := json.Marshal(e)
+							errorJSON, err := json.Marshal(e)
 							if err != nil {
 								log.WithError(err).Warn("Error marshalling parseerror to json")
 							} else {
-								_, err = io.WriteString(oFile, string(errorJson)+"\n")
+								_, err = io.WriteString(oFile, string(errorJSON)+"\n")
 								if err != nil {
 									log.WithError(err).Warn("Error writing to ParseErrorFile")
 								}
